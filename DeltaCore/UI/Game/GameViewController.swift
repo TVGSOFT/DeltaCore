@@ -167,6 +167,11 @@ open class GameViewController: UIViewController, GameControllerReceiver
         self.emulatorCore?.stop()
     }
     
+    
+    open dynamic func getControllerSkin(game: GameProtocol) -> ControllerSkin? {
+        return ControllerSkin.standardControllerSkin(for: game.type)
+    }
+    
     // MARK: - UIViewController -
     /// UIViewController
     // These would normally be overridden in a public extension, but overriding these methods in subclasses of GameViewController segfaults compiler if so
@@ -579,8 +584,9 @@ private extension GameViewController
 }
 
 // MARK: - Preparation -
-private extension GameViewController
+extension GameViewController
 {
+ 
     func prepareForGame()
     {
         guard
@@ -597,7 +603,7 @@ private extension GameViewController
         controllerView.addReceiver(self)
         controllerView.addReceiver(emulatorCore)
         
-        let controllerSkin = ControllerSkin.standardControllerSkin(for: game.type)
+        let controllerSkin = getControllerSkin(game: game)
         controllerView.controllerSkin = controllerSkin
         
         self.view.setNeedsUpdateConstraints()
