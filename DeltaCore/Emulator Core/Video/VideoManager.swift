@@ -58,6 +58,18 @@ public class VideoManager: NSObject, VideoRendering
     
     private let eaglContext: EAGLContext?
     private let ciContext: CIContext
+
+    // OpenGL-ES `CIContext.render(toBitmap:)` aborts inside Apple's GL-on-Metal shim on newer
+    // GPUs (and is unsupported on macOS 15). For bitmap cores the displayed CIImage is
+    // CPU/bitmap-backed, so render snapshots with a Metal-backed CIContext to avoid the abort.
+    // GL cores keep the existing context (their displayed image is GL-texture-backed).
+    private lazy var snapshotContext: CIContext = {
+        switch self.videoFormat.format
+        {
+        case .bitmap: return CIContext(options: [.workingColorSpace: NSNull()])
+        case .openGLES2, .openGLES3: return self.ciContext
+        }
+    }()
     
     private var processor: VideoProcessor
     @NSCopying private var processedImage: CIImage?
@@ -193,7 +205,7 @@ public extension VideoManager
         
         // Must render to raw buffer first so we can set CGImageAlphaInfo.noneSkipLast flag when creating CGImage.
         // Otherwise, some parts of images may incorrectly be transparent.
-        self.ciContext.render(displayedImage, toBitmap: baseAddress, rowBytes: imageWidth * 4, bounds: displayedImage.extent, format: .RGBA8, colorSpace: colorSpace)
+        self.snapshotContext.render(displayedImage, toBitmap: baseAddress, rowBytes: imageWidth * 4, bounds: displayedImage.extent, format: .RGBA8, colorSpace: colorSpace)
         
         let data = Data(bytes: baseAddress, count: imageBuffer.count)
         let bitmapInfo: CGBitmapInfo = [CGBitmapInfo.byteOrder32Big, CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)]
