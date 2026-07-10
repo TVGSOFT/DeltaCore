@@ -117,6 +117,7 @@ public class ControllerView: UIView, GameController
     internal weak var appPlacementLayoutGuide: UILayoutGuide? {
         didSet {
             self.controllerDebugView.appPlacementLayoutGuide = self.appPlacementLayoutGuide
+            self.buttonsDynamicEffectView.appPlacementLayoutGuide = self.appPlacementLayoutGuide
         }
     }
     
@@ -141,6 +142,7 @@ public class ControllerView: UIView, GameController
     private let controllerDebugView = ControllerDebugView()
     
     private let buttonsView = ButtonsInputView(frame: CGRect.zero)
+    private let buttonsDynamicEffectView = ButtonsDynamicEffectView(frame: CGRect.zero)
     private var thumbstickViews = [ControllerSkin.Item.ID: ThumbstickInputView]()
     private var touchViews = [ControllerSkin.Item.ID: TouchInputView]()
     
@@ -188,7 +190,10 @@ public class ControllerView: UIView, GameController
             self?.deactivateButtonInputs(inputs)
         }
         self.contentView.addSubview(self.buttonsView)
-        
+
+        self.buttonsDynamicEffectView.translatesAutoresizingMaskIntoConstraints = false
+        self.contentView.addSubview(self.buttonsDynamicEffectView)
+
         self.controllerDebugView.translatesAutoresizingMaskIntoConstraints = false
         self.contentView.addSubview(self.controllerDebugView)
         
@@ -210,6 +215,11 @@ public class ControllerView: UIView, GameController
                                      self.buttonsView.topAnchor.constraint(equalTo: self.contentView.topAnchor),
                                      self.buttonsView.bottomAnchor.constraint(equalTo: self.contentView.bottomAnchor)])
         
+        NSLayoutConstraint.activate([self.buttonsDynamicEffectView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor),
+                                     self.buttonsDynamicEffectView.trailingAnchor.constraint(equalTo: self.contentView.trailingAnchor),
+                                     self.buttonsDynamicEffectView.topAnchor.constraint(equalTo: self.contentView.topAnchor),
+                                     self.buttonsDynamicEffectView.bottomAnchor.constraint(equalTo: self.contentView.bottomAnchor)])
+
         NSLayoutConstraint.activate([self.controllerDebugView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor),
                                      self.controllerDebugView.trailingAnchor.constraint(equalTo: self.contentView.trailingAnchor),
                                      self.controllerDebugView.topAnchor.constraint(equalTo: self.contentView.topAnchor),
@@ -221,7 +231,8 @@ public class ControllerView: UIView, GameController
     public override func layoutSubviews()
     {
         self.controllerDebugView.setNeedsLayout()
-        
+        self.buttonsDynamicEffectView.setNeedsLayout()
+
         super.layoutSubviews()
         
         _performedInitialLayout = true
@@ -484,6 +495,9 @@ public extension ControllerView
             
             self.buttonsView.items = items
             self.controllerDebugView.items = items
+
+            self.buttonsDynamicEffectView.archive = (self.controllerSkin as? ControllerSkin)?.archive
+            self.buttonsDynamicEffectView.items = items
             
             isTranslucent = self.controllerSkin?.isTranslucent(for: traits) ?? false
             
@@ -555,6 +569,9 @@ public extension ControllerView
         {
             self.buttonsView.items = nil
             self.controllerDebugView.items = nil
+
+            self.buttonsDynamicEffectView.archive = nil
+            self.buttonsDynamicEffectView.items = nil
             
             self.thumbstickViews.values.forEach { $0.removeFromSuperview() }
             self.thumbstickViews = [:]
@@ -723,14 +740,16 @@ private extension ControllerView
         for input in inputs
         {
             self.activate(input)
+            self.buttonsDynamicEffectView.activateButtonEffect(input: input)
         }
     }
-    
+
     func deactivateButtonInputs(_ inputs: Set<AnyInput>)
     {
         for input in inputs
         {
             self.deactivate(input)
+            self.buttonsDynamicEffectView.deactivateButtonEffect(input: input)
         }
     }
     

@@ -21,7 +21,7 @@ public extension GameControllerInputType
     static let controllerSkin = GameControllerInputType("controllerSkin")
 }
 
-private extension Archive
+internal extension Archive
 {
     func extract(_ entry: Entry) throws -> Data
     {
@@ -72,7 +72,7 @@ public struct ControllerSkin: ControllerSkinProtocol
     private let representations: [Traits: Representation]
     private let imageCache = NSCache<NSString, UIImage>()
     
-    private let archive: Archive
+    internal let archive: Archive
     
     public init?(fileURL: URL)
     {
@@ -439,15 +439,25 @@ extension ControllerSkin
             }
         }
         
+        // Per-item artwork declared via the item-level "asset" key (ManicEMU-style skins).
+        // Skins without it (all classic Delta skins) get no per-item views.
+        public enum Asset
+        {
+            case button(normal: String?, selected: String?)
+            case dpad(normal: String?)
+        }
+
         public var id: String
-        
+
         public var kind: Kind
         public var inputs: Inputs
-        
+
         public var frame: CGRect
         public var extendedFrame: CGRect
-        
+
         public var placement: Placement
+
+        public var asset: Asset?
         
         fileprivate var thumbstickImageName: String?
         fileprivate var thumbstickSize: CGSize?
@@ -812,8 +822,18 @@ private extension ControllerSkin
             for (index, dictionary) in zip(0..., itemsArray)
             {
                 let itemID = ControllerSkin.itemID(forSkinID: skinID, traits: traits, index: index)
-                if let item = Item(id: itemID, dictionary: dictionary, extendedEdges: extendedEdges, mappingSize: mappingSize)
+                if var item = Item(id: itemID, dictionary: dictionary, extendedEdges: extendedEdges, mappingSize: mappingSize)
                 {
+                    if let assetDictionary = dictionary["asset"] as? [String: String]
+                    {
+                        switch item.kind
+                        {
+                        case .button: item.asset = .button(normal: assetDictionary["normal"], selected: assetDictionary["selected"])
+                        case .dPad: item.asset = .dpad(normal: assetDictionary["normal"])
+                        default: break
+                        }
+                    }
+
                     items.append(item)
                 }
             }
