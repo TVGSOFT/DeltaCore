@@ -17,15 +17,32 @@ class ButtonsInputView: UIView
     var activateInputsHandler: ((Set<AnyInput>) -> Void)?
     var deactivateInputsHandler: ((Set<AnyInput>) -> Void)?
     
+    /// How the background skin art fills this view. Defaults to `.scaleToFill` (stock Delta behaviour:
+    /// `ControllerView` is sized from the art itself, so filling and fitting are the same thing).
+    /// Skins whose art aspect ratio != `mappingSize` aspect ratio — e.g. the 3DS iPad-portrait skin,
+    /// whose 609x661 art is shorter than its 609x812 canvas — need `.scaleAspectFit` so the art
+    /// letterboxes inside the canvas instead of stretching to it. Set via
+    /// `ControllerView.backgroundImageContentMode`.
+    var backgroundImageContentMode: UIView.ContentMode = .scaleToFill {
+        didSet {
+            self.imageView.contentMode = self.backgroundImageContentMode
+        }
+    }
+
     var image: UIImage? {
         get {
             return self.imageView.image
         }
         set {
             self.imageView.image = newValue
+
+            // Re-assert on every image swap. `updateControllerSkin()` replaces the image on each
+            // rotation / skin change, and a caller that sets the mode before the first image must not
+            // have it silently outlived by a later assignment.
+            self.imageView.contentMode = self.backgroundImageContentMode
         }
     }
-    
+
     private let imageView = UIImageView(frame: .zero)
     
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
@@ -48,6 +65,8 @@ class ButtonsInputView: UIView
         
         self.feedbackGenerator.prepare()
         
+        self.imageView.contentMode = self.backgroundImageContentMode
+
         self.imageView.translatesAutoresizingMaskIntoConstraints = false
         self.addSubview(self.imageView)
         

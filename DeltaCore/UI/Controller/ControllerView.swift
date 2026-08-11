@@ -93,6 +93,18 @@ public class ControllerView: UIView, GameController
         }
     }
     
+    /// How the skin's background art fills this view. `.scaleToFill` (the default) is stock Delta
+    /// behaviour and correct for every skin whose art aspect ratio equals its `mappingSize` aspect
+    /// ratio — which is all of them except the 3DS iPad-portrait representation (609x661 art in a
+    /// 609x812 canvas). A caller that sizes this view to the canvas rather than to the art must set
+    /// `.scaleAspectFit`, so the art letterboxes inside the canvas instead of stretching to it.
+    /// See `ThreeDSGameViewController` — the only caller today.
+    public var backgroundImageContentMode: UIView.ContentMode = .scaleToFill {
+        didSet {
+            self.buttonsView.backgroundImageContentMode = self.backgroundImageContentMode
+        }
+    }
+
     public var isThumbstickHapticFeedbackEnabled = true {
         didSet {
             self.thumbstickViews.values.forEach { $0.isHapticFeedbackEnabled = self.isThumbstickHapticFeedbackEnabled }
