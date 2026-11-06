@@ -179,14 +179,27 @@ public class GameView: UIView
     {
         if let window = self.window
         {
+            // Changing contentScaleFactor makes GLKView drop its drawable, so do it under the render lock (see layoutSubviews).
+            os_unfair_lock_lock(&self.lock)
             self.glkView.contentScaleFactor = window.screen.scale
+            os_unfair_lock_unlock(&self.lock)
+            
             self.update()
         }
     }
     
     public override func layoutSubviews()
     {
+        // The rendering thread draws into glkView (update() -> glkView.display()) while holding self.lock.
+        // Resizing glkView and its own layout pass (which deletes and recreates the framebuffer) use the same
+        // EAGLContext on the main thread, so perform both under the lock too. Otherwise the two threads touch the
+        // context concurrently and corrupt its command buffer (Crashlytics 57c41ec3). Forcing glkView's layout here
+        // also guarantees its framebuffer exists before didLayoutSubviews lets the rendering thread draw.
+        os_unfair_lock_lock(&self.lock)
+        defer { os_unfair_lock_unlock(&self.lock) }
+        
         super.layoutSubviews()
+        self.glkView.layoutIfNeeded()
         
         if self.outputImage != nil
         {
