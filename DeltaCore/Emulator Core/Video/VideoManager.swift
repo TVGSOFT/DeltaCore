@@ -89,7 +89,10 @@ public class VideoManager: NSObject, VideoRendering
         case .bitmap:
             self.processor = BitmapProcessor(videoFormat: videoFormat)
             
-            if let prefersMetal = options[.metal] as? Bool, prefersMetal
+            // macOS no longer provides +[CIContext contextWithEAGLContext:options:], so an iOS app
+            // running on a Mac must render bitmaps with Metal whatever the caller asked for.
+            let prefersMetal = (options[.metal] as? Bool) ?? false
+            if prefersMetal || ProcessInfo.processInfo.isiOSAppOnMac
             {
                 self.ciContext = CIContext(options: [.workingColorSpace: NSNull()])
                 self.eaglContext = nil

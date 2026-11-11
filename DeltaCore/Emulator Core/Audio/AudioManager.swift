@@ -302,17 +302,25 @@ private extension AudioManager
         self.renderingQueue.sync {
             self.audioPlayerNode.reset()
             
-            guard let outputAudioFormat = AVAudioFormat(standardFormatWithSampleRate: AVAudioSession.sharedInstance().sampleRate, channels: self.audioFormat.channelCount) else { return }
+            // Route changes can fire while the session reports no (or a bogus) hardware sample rate,
+            // e.g. in the background. Keep the current configuration until a sane one arrives.
+            let outputSampleRate = AVAudioSession.sharedInstance().sampleRate
+            guard outputSampleRate.isFinite, outputSampleRate >= 8000 else { return }
+            
+            guard let outputAudioFormat = AVAudioFormat(standardFormatWithSampleRate: outputSampleRate, channels: self.audioFormat.channelCount) else { return }
             
             let inputAudioBufferFrameCount = Int(self.audioFormat.sampleRate * self.frameDuration)
             let outputAudioBufferFrameCount = Int(outputAudioFormat.sampleRate * self.frameDuration)
             
             // Allocate enough space to prevent us from overwriting data before we've used it.
-            let ringBufferAudioBufferCount = Int((self.audioFormat.sampleRate / outputAudioFormat.sampleRate).rounded(.up) + 10.0)
+            let sampleRateRatio = min((self.audioFormat.sampleRate / outputAudioFormat.sampleRate).rounded(.up), 16.0)
+            let ringBufferAudioBufferCount = Int(sampleRateRatio + 10.0)
             
             let preferredBufferSize = inputAudioBufferFrameCount * self.audioFormat.frameSize * ringBufferAudioBufferCount
-            guard let ringBuffer = RingBuffer(preferredBufferSize: preferredBufferSize) else {
-                fatalError("Cannot initialize RingBuffer with preferredBufferSize of \(preferredBufferSize)")
+            guard preferredBufferSize > 0, let ringBuffer = RingBuffer(preferredBufferSize: preferredBufferSize) else {
+                // Allocation fails under memory pressure. Losing audio until the next reset beats crashing.
+                print("Cannot initialize RingBuffer with preferredBufferSize of \(preferredBufferSize)")
+                return
             }
             self.audioBuffer = ringBuffer
             
